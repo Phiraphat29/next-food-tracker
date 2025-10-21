@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface Food {
@@ -75,7 +76,6 @@ export default function Page() {
     if (!confirm) {
       return;
     }
-    console.log(`Deleting food with ID: ${id}`);
     //* delete food from supabase
     const { error } = await supabase.from("food_tb").delete().eq("id", id);
     if (error) {
@@ -93,7 +93,8 @@ export default function Page() {
   //* handle edit
   const handleEdit = (id: number) => {
     console.log(`Editing food with ID: ${id}`);
-    // Implement edit logic here, e.g., redirect to /editfood/:id
+    //* redirect to updatefood page
+    router.push(`/updatefood/${id}`);
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-fuchsia-400 via-purple-500 to-pink-500 p-4">
@@ -118,12 +119,20 @@ export default function Page() {
               Search
             </button>
           </div>
-          <a
-            href="/addfood"
-            className="bg-purple-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:bg-purple-700 focus:outline-none"
-          >
-            Add Food
-          </a>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile"
+              className="bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:bg-blue-700 focus:outline-none text-center"
+            >
+              Profile
+            </Link>
+            <Link
+              href="/addfood"
+              className="bg-purple-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:bg-purple-700 focus:outline-none text-center"
+            >
+              Add Food
+            </Link>
+          </div>
         </div>
 
         {/* ตารางแสดงข้อมูล */}

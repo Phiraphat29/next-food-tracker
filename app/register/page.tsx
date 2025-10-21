@@ -148,6 +148,7 @@ export default function Page() {
                   type="radio"
                   name="gender"
                   value="male"
+                  required
                   checked={gender === "male"}
                   onChange={(e) => setGender(e.target.value)}
                   className="form-radio h-5 w-5 text-purple-600 border-gray-300 focus:ring-purple-500 transition-colors"
@@ -159,6 +160,7 @@ export default function Page() {
                   type="radio"
                   name="gender"
                   value="female"
+                  required
                   checked={gender === "female"}
                   onChange={(e) => setGender(e.target.value)}
                   className="form-radio h-5 w-5 text-purple-600 border-gray-300 focus:ring-purple-500 transition-colors"
