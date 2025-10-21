@@ -16,6 +16,7 @@ export default function Page() {
     e.preventDefault();
     setIsLoading(true);
 
+    //* AI GENERATED CODE
     try {
       // Check if user exists in custom user_tb table
       const { data, error } = await supabase

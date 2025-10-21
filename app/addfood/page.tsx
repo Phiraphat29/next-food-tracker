@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
   const [foodName, setFoodName] = useState("");
@@ -10,14 +12,32 @@ export default function Page() {
   const [date, setDate] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setImage(file);
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        alert("Error reading the file");
+        setImagePreview(null);
       };
       reader.readAsDataURL(file);
     } else {
@@ -25,12 +45,63 @@ export default function Page() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Logic for saving food data goes here.
-    // This could involve sending data to a database.
-    console.log({ foodName, meal, date, image });
-    alert("Food has been saved!");
+    setIsLoading(true);
+
+    try {
+      //* upload image to supabase storage
+      let image_url = "";
+      if (image) {
+        // named new image file
+        const new_image_file_name = `${Date.now()}-${image.name}`;
+        // upload it
+        const { data, error } = await supabase.storage
+          .from("food_bk")
+          .upload(new_image_file_name, image);
+        // after upload, check if the upload is successful
+        if (error) {
+          alert("พบปัญหาในการอัปโหลดรูปภาพ");
+          console.log(error.message);
+          return;
+        } else {
+          const { data } = await supabase.storage
+            .from("food_bk")
+            .getPublicUrl(new_image_file_name);
+          image_url = data.publicUrl;
+        }
+      }
+
+      //* submit form data to supabase
+      const { data, error } = await supabase.from("food_tb").insert({
+        foodname: foodName,
+        meal: meal,
+        fooddate_at: date,
+        food_image_url: image_url,
+      });
+
+      // after submit, check if the submission is successful
+      if (error) {
+        alert("พบปัญหาในการบันทึกข้อมูลอาหาร");
+        console.log(error.message);
+        return;
+      } else {
+        alert("บันทึกข้อมูลอาหารสำเร็จ");
+        // clear form
+        setFoodName("");
+        setMeal("");
+        setDate("");
+        setImage(null);
+        setImagePreview(null);
+        // redirect to dashboard
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      console.error("Save food error:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูลอาหาร");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -99,10 +170,13 @@ export default function Page() {
             />
             {imagePreview && (
               <div className="mt-4">
-                <img
+                <Image
                   src={imagePreview}
                   alt="Image Preview"
+                  width={128}
+                  height={128}
                   className="w-32 h-32 object-cover rounded-md border-4 border-purple-500 shadow-md"
+                  unoptimized={true}
                 />
               </div>
             )}
@@ -111,9 +185,14 @@ export default function Page() {
           {/* ปุ่มบันทึก */}
           <button
             type="submit"
-            className="mt-6 w-full bg-purple-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:bg-purple-700 focus:outline-none"
+            disabled={isLoading}
+            className={`mt-6 w-full font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform focus:outline-none ${
+              isLoading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-purple-600 hover:scale-105 hover:bg-purple-700"
+            } text-white`}
           >
-            Save
+            {isLoading ? "กำลังบันทึก..." : "Save"}
           </button>
         </form>
 
