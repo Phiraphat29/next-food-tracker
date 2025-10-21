@@ -128,11 +128,13 @@ export default function Page() {
 
       // Update user profile in user_tb table
       const updateData: {
+        email: string;
         fullname: string;
         gender: string;
         user_image_url: string | null;
         password?: string;
       } = {
+        email: email,
         fullname: fullName,
         gender: gender,
         user_image_url: avatar_url,
