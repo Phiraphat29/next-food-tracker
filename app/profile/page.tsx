@@ -26,68 +26,50 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Fetch user session data
+  //* Fetch user profile data from localStorage and user_tb table
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        // Get current session
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+        // Get user data from localStorage
+        const userData = localStorage.getItem("user");
 
-        if (sessionError) {
-          console.error("Error getting session:", sessionError);
-          alert("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: " + sessionError.message);
-          router.push("/login");
-          return;
-        }
-
-        if (!session?.user) {
+        if (!userData) {
           alert("กรุณาเข้าสู่ระบบก่อน");
           router.push("/login");
           return;
         }
 
-        // Try to get user profile data from profiles table (if it exists)
-        let profileData = null;
-        try {
-          const { data, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+        const parsedUser = JSON.parse(userData);
 
-          if (!profileError) {
-            profileData = data;
-          }
-        } catch {
-          console.log(
-            "Profiles table doesn't exist or no profile found, using session data"
-          );
+        // Get fresh user data from user_tb table
+        const { data: userProfile, error } = await supabase
+          .from("user_tb")
+          .select("*")
+          .eq("id", parsedUser.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          alert("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้");
+          router.push("/login");
+          return;
         }
 
-        // Create user profile from available data
-        const userProfile = {
-          id: session.user.id,
-          email: session.user.email || "",
-          full_name:
-            profileData?.full_name ||
-            session.user.user_metadata?.full_name ||
-            "",
-          gender:
-            profileData?.gender || session.user.user_metadata?.gender || "",
-          avatar_url:
-            profileData?.avatar_url ||
-            session.user.user_metadata?.avatar_url ||
-            null,
-        };
+        if (userProfile) {
+          const profile = {
+            id: userProfile.id,
+            email: userProfile.email,
+            full_name: userProfile.fullname,
+            gender: userProfile.gender,
+            avatar_url: userProfile.user_image_url,
+          };
 
-        setUser(userProfile);
-        setFullName(userProfile.full_name);
-        setEmail(userProfile.email);
-        setGender(userProfile.gender);
-        setImagePreview(userProfile.avatar_url);
+          setUser(profile);
+          setFullName(profile.full_name);
+          setEmail(profile.email);
+          setGender(profile.gender);
+          setImagePreview(profile.avatar_url);
+        }
       } catch (error) {
         console.error("Error:", error);
         alert("เกิดข้อผิดพลาดในการโหลดข้อมูล");
@@ -124,12 +106,12 @@ export default function Page() {
         return;
       }
 
-      // Upload new image if selected
+      //* Upload new image if selected
       let avatar_url = imagePreview;
       if (image) {
         const new_image_file_name = `${Date.now()}-${image.name}`;
         const { error: uploadError } = await supabase.storage
-          .from("avatars")
+          .from("user_bk")
           .upload(new_image_file_name, image);
 
         if (uploadError) {
@@ -138,46 +120,51 @@ export default function Page() {
           return;
         } else {
           const { data } = await supabase.storage
-            .from("avatars")
+            .from("user_bk")
             .getPublicUrl(new_image_file_name);
           avatar_url = data.publicUrl;
         }
       }
 
-      // Update password if provided
+      // Update user profile in user_tb table
+      const updateData: {
+        fullname: string;
+        gender: string;
+        user_image_url: string | null;
+        password?: string;
+      } = {
+        fullname: fullName,
+        gender: gender,
+        user_image_url: avatar_url,
+      };
+
+      // Only update password if provided
       if (password) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: password,
-        });
-        if (passwordError) {
-          alert("พบปัญหาในการอัปเดตรหัสผ่าน");
-          console.log(passwordError.message);
-          return;
-        }
+        updateData.password = password;
       }
 
-      // Try to update profile data (if profiles table exists)
-      try {
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: user.id,
-          full_name: fullName,
-          gender: gender,
-          avatar_url: avatar_url,
-          updated_at: new Date().toISOString(),
-        });
+      const { error: updateError } = await supabase
+        .from("user_tb")
+        .update(updateData)
+        .eq("id", user.id);
 
-        if (profileError) {
-          console.log(
-            "Profiles table doesn't exist or update failed:",
-            profileError.message
-          );
-          // Continue without profile update - just update auth metadata
-        }
-      } catch {
-        console.log("Profiles table doesn't exist, skipping profile update");
+      if (updateError) {
+        alert("พบปัญหาในการอัปเดตข้อมูลโปรไฟล์");
+        console.log(updateError.message);
+        return;
       }
 
+      // Update localStorage with new data
+      const updatedUserData = {
+        id: user.id,
+        fullname: fullName,
+        email: user.email,
+        gender: gender,
+        user_image_url: avatar_url,
+      };
+      localStorage.setItem("user", JSON.stringify(updatedUserData));
       alert("อัปเดตข้อมูลโปรไฟล์สำเร็จ");
+      router.push("/dashboard");
     } catch (error) {
       console.error("Update profile error:", error);
       alert("เกิดข้อผิดพลาดในการอัปเดตข้อมูลโปรไฟล์");

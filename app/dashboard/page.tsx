@@ -22,6 +22,16 @@ export default function Page() {
   const itemsPerPage = 5;
   const router = useRouter();
 
+  // Check authentication
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (!userData) {
+      alert("กรุณาเข้าสู่ระบบก่อน");
+      router.push("/login");
+      return;
+    }
+  }, [router]);
+
   // Fetch data from Supabase
   useEffect(() => {
     const fetchFoods = async () => {
