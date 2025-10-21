@@ -12,7 +12,9 @@ const mockFoodItem = {
   imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food",
 };
 
-export default function Page() {
+export default function Page({ params }: { params: { id: string } }) {
+  const { id } = params;
+
   const [foodName, setFoodName] = useState(mockFoodItem.foodName);
   const [meal, setMeal] = useState(mockFoodItem.meal);
   const [date, setDate] = useState(mockFoodItem.date);

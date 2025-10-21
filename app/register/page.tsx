@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
   const [fullName, setFullName] = useState("");
@@ -11,6 +13,7 @@ export default function Page() {
   const [gender, setGender] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -42,12 +45,57 @@ export default function Page() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Logic for registration submission goes here.
-    // For example, sending data to an API.
-    console.log({ fullName, email, password, gender, image });
+    //* upload image to supabase storage
+    let image_url = "";
+    if (image) {
+      // named new image file
+      const new_image_file_name = `${Date.now()}-${image.name}`;
+      // upload it
+      const { data, error } = await supabase.storage
+        .from("user_bk")
+        .upload(new_image_file_name, image);
+      // after upload, check if the upload is successful
+      if (error) {
+        alert("พบปัญหาในการอัปโหลดรูปภาพ");
+        console.log(error.message);
+      } else {
+        const { data } = await supabase.storage
+          .from("user_bk")
+          .getPublicUrl(new_image_file_name);
+        image_url = data.publicUrl;
+      }
+    }
+
+    //* submit form data to supabase
+    const { data, error } = await supabase.from("user_tb").insert({
+      fullname: fullName,
+      email: email,
+      password: password,
+      gender: gender,
+      user_image_url: image_url,
+    });
+
+    // after submit, check if the submission is successful
+    if (error) {
+      alert("พบปัญหาในการลงทะเบียน");
+      console.log(error.message);
+      return;
+    } else {
+      alert("ลงทะเบียนสำเร็จ");
+      // clear form
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setGender("");
+      setImage(null);
+      setImagePreview(null);
+      // redirect to login page
+      router.push("/login");
+    }
   };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-fuchsia-400 via-purple-500 to-pink-500 p-4">
       <div className="bg-white/70 backdrop-blur-lg p-8 md:p-12 rounded-3xl shadow-2xl text-center max-w-lg w-full border border-white/80">
@@ -163,10 +211,13 @@ export default function Page() {
           {/* แสดงรูปภาพที่เลือก */}
           {imagePreview && (
             <div className="mt-4 flex justify-center">
-              <img
+              <Image
                 src={imagePreview}
                 alt="Image Preview"
+                width={128}
+                height={128}
                 className="w-32 h-32 object-cover rounded-full border-4 border-purple-500 shadow-md"
+                unoptimized={true}
               />
             </div>
           )}

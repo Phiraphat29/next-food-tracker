@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Page() {
   const [email, setEmail] = useState("");
@@ -10,12 +11,21 @@ export default function Page() {
 
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Logic for login submission goes here.
-    // For example, sending data to an authentication API.
-    console.log({ email, password });
-    router.push("/dashboard");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+    if (error) {
+      alert("พบปัญหาในการล็อกอิน");
+      console.log(error.message);
+      return;
+    } else {
+      alert("ล็อกอินสำเร็จ");
+      router.push("/profile");
+    }
   };
 
   return (
