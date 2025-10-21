@@ -1,106 +1,96 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
-const mockFoods = [
-  {
-    id: 1,
-    date: "2023-10-27",
-    foodName: "ข้าวผัดกะเพราไก่",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+1",
-  },
-  {
-    id: 2,
-    date: "2023-10-27",
-    foodName: "ส้มตำ",
-    meal: "มื้อเย็น",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+2",
-  },
-  {
-    id: 3,
-    date: "2023-10-26",
-    foodName: "ผัดไทย",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+3",
-  },
-  {
-    id: 4,
-    date: "2023-10-26",
-    foodName: "ก๋วยเตี๋ยวเรือ",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+4",
-  },
-  {
-    id: 5,
-    date: "2023-10-25",
-    foodName: "ข้าวขาหมู",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+5",
-  },
-  {
-    id: 6,
-    date: "2023-10-25",
-    foodName: "แกงเขียวหวาน",
-    meal: "มื้อเย็น",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+6",
-  },
-  {
-    id: 7,
-    date: "2023-10-24",
-    foodName: "ต้มยำกุ้ง",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+7",
-  },
-  {
-    id: 8,
-    date: "2023-10-24",
-    foodName: "ข้าวเหนียวมะม่วง",
-    meal: "มื้อเย็น",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+8",
-  },
-  {
-    id: 9,
-    date: "2023-10-23",
-    foodName: "ผัดซีอิ๊ว",
-    meal: "มื้อเช้า",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+9",
-  },
-  {
-    id: 10,
-    date: "2023-10-23",
-    foodName: "ข้าวไข่เจียว",
-    meal: "มื้อกลางวัน",
-    imageUrl: "https://placehold.co/100x100/A020F0/ffffff?text=Food+10",
-  },
-];
+interface Food {
+  id: number;
+  foodname: string;
+  meal: string;
+  fooddate_at: string;
+  food_image_url: string | null;
+}
 
 export default function Page() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [foods, setFoods] = useState<Food[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 5;
+  const router = useRouter();
 
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchFoods = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("food_tb")
+          .select("*")
+          .order("fooddate_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching foods:", error);
+          alert("เกิดข้อผิดพลาดในการโหลดข้อมูล");
+        } else {
+          setFoods(data || []);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("เกิดข้อผิดพลาดในการโหลดข้อมูล");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFoods();
+  }, []);
+
+  //* filter foods by search term
   const filteredFoods = useMemo(() => {
-    return mockFoods.filter((food) =>
-      food.foodName.toLowerCase().includes(searchTerm.toLowerCase())
+    return foods.filter((food) =>
+      food.foodname.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [foods, searchTerm]);
 
+  //* calculate total pages and current foods
   const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
+
+  //* get current foods
   const currentFoods = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredFoods.slice(startIndex, startIndex + itemsPerPage);
   }, [currentPage, filteredFoods]);
 
+  //* handle search
   const handleSearch = () => {
     setCurrentPage(1); // Reset to first page on new search
   };
 
-  const handleDelete = (id: number) => {
+  //* handle delete
+  const handleDelete = async (id: number) => {
+    //* show confirm dialog
+    const confirm = window.confirm("คุณต้องการลบข้อมูลอาหารนี้หรือไม่?");
+    if (!confirm) {
+      return;
+    }
     console.log(`Deleting food with ID: ${id}`);
-    // Implement delete logic here
+    //* delete food from supabase
+    const { error } = await supabase.from("food_tb").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting food:", error);
+      alert("เกิดข้อผิดพลาดในการลบข้อมูล");
+    } else {
+      alert("ลบข้อมูลอาหารสำเร็จ");
+    }
+    //* delete food from local state
+    setFoods((prevFoods) => prevFoods.filter((food) => food.id !== id));
+    //* refresh the page
+    router.refresh();
   };
 
+  //* handle edit
   const handleEdit = (id: number) => {
     console.log(`Editing food with ID: ${id}`);
     // Implement edit logic here, e.g., redirect to /editfood/:id
@@ -149,21 +139,39 @@ export default function Page() {
               </tr>
             </thead>
             <tbody>
-              {currentFoods.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    กำลังโหลดข้อมูล...
+                  </td>
+                </tr>
+              ) : foods.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    ไม่มีข้อมูล
+                  </td>
+                </tr>
+              ) : currentFoods.length > 0 ? (
                 currentFoods.map((food) => (
                   <tr
                     key={food.id}
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <td className="py-4 px-6">
-                      <img
-                        src={food.imageUrl}
-                        alt={food.foodName}
+                      <Image
+                        src={
+                          food.food_image_url ||
+                          "https://placehold.co/100x100/A020F0/ffffff?text=No+Image"
+                        }
+                        alt={food.foodname}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 object-cover rounded-md"
+                        unoptimized={true}
                       />
                     </td>
-                    <td className="py-4 px-6">{food.date}</td>
-                    <td className="py-4 px-6">{food.foodName}</td>
+                    <td className="py-4 px-6">{food.fooddate_at}</td>
+                    <td className="py-4 px-6">{food.foodname}</td>
                     <td className="py-4 px-6">{food.meal}</td>
                     <td className="py-4 px-6 flex flex-col sm:flex-row gap-2">
                       <button
